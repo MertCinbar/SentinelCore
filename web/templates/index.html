@@ -1,0 +1,932 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>SentinelCore — Otonom Ağ Trafiği & Saldırı Tespit Sistemi (IDS / SOC Console)</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;700&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+  <style>
+    :root {
+      --bg-base: #060911;
+      --bg-surface: #0b1120;
+      --bg-card: #0f172a;
+      --bg-card-hover: #162238;
+      --border-subtle: #1e293b;
+      --border-bright: #334155;
+      
+      --cyan: #06b6d4;
+      --cyan-glow: rgba(6, 182, 212, 0.25);
+      --emerald: #10b981;
+      --emerald-glow: rgba(16, 185, 129, 0.25);
+      --danger: #ef4444;
+      --danger-glow: rgba(239, 68, 68, 0.3);
+      --amber: #f59e0b;
+      --purple: #8b5cf6;
+      
+      --text-main: #f8fafc;
+      --text-muted: #94a3b8;
+      --text-dim: #64748b;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      background-color: var(--bg-base);
+      color: var(--text-main);
+      font-family: 'Plus Jakarta Sans', sans-serif;
+      min-height: 100vh;
+      overflow-x: hidden;
+      line-height: 1.4;
+    }
+
+    code, pre, .mono {
+      font-family: 'JetBrains Mono', monospace;
+    }
+
+    /* TOP HEADER */
+    header {
+      background: rgba(11, 17, 32, 0.85);
+      backdrop-filter: blur(12px);
+      border-bottom: 1px solid var(--border-subtle);
+      padding: 12px 24px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      position: sticky;
+      top: 0;
+      z-index: 40;
+    }
+
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .radar-icon {
+      width: 38px;
+      height: 38px;
+      border-radius: 10px;
+      background: linear-gradient(135deg, #0ea5e9, #0284c7);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      box-shadow: 0 0 16px var(--cyan-glow);
+      position: relative;
+    }
+
+    .radar-pulse {
+      position: absolute;
+      width: 100%;
+      height: 100%;
+      border-radius: 10px;
+      border: 2px solid var(--cyan);
+      animation: pulseAnim 2s infinite ease-out;
+    }
+
+    @keyframes pulseAnim {
+      0% { transform: scale(1); opacity: 0.8; }
+      100% { transform: scale(1.4); opacity: 0; }
+    }
+
+    .brand-title {
+      font-size: 16px;
+      font-weight: 800;
+      letter-spacing: 0.5px;
+      background: linear-gradient(to right, #ffffff, #38bdf8);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+
+    .brand-subtitle {
+      font-size: 11px;
+      color: var(--text-dim);
+      font-weight: 500;
+    }
+
+    .header-actions {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .btn {
+      padding: 7px 14px;
+      border-radius: 8px;
+      font-size: 12px;
+      font-weight: 600;
+      cursor: pointer;
+      border: 1px solid transparent;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      transition: all 0.15s ease;
+    }
+
+    .btn-secondary {
+      background: var(--bg-card);
+      border-color: var(--border-subtle);
+      color: var(--text-muted);
+    }
+    .btn-secondary:hover {
+      background: var(--bg-card-hover);
+      color: #fff;
+    }
+
+    .btn-danger {
+      background: rgba(239, 68, 68, 0.15);
+      border-color: rgba(239, 68, 68, 0.4);
+      color: #f87171;
+    }
+    .btn-danger:hover {
+      background: var(--danger);
+      color: #fff;
+      box-shadow: 0 0 12px var(--danger-glow);
+    }
+
+    .status-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 5px 11px;
+      border-radius: 20px;
+      font-size: 11.5px;
+      font-weight: 600;
+      background: rgba(16, 185, 129, 0.12);
+      border: 1px solid rgba(16, 185, 129, 0.3);
+      color: #34d399;
+    }
+
+    .live-dot {
+      width: 7px;
+      height: 7px;
+      border-radius: 50%;
+      background: var(--emerald);
+      box-shadow: 0 0 8px var(--emerald);
+      animation: blink 1.2s infinite;
+    }
+
+    @keyframes blink {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.3; }
+    }
+
+    /* MAIN CONTAINER */
+    .container {
+      max-width: 1560px;
+      margin: 0 auto;
+      padding: 20px 24px;
+    }
+
+    /* KPI METRICS */
+    .metrics-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+      gap: 14px;
+      margin-bottom: 20px;
+    }
+
+    .metric-card {
+      background: var(--bg-surface);
+      border: 1px solid var(--border-subtle);
+      border-radius: 12px;
+      padding: 16px 18px;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .metric-card::before {
+      content: '';
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 2px;
+      background: linear-gradient(90deg, var(--cyan), transparent);
+    }
+
+    .metric-card.threat::before {
+      background: linear-gradient(90deg, var(--danger), transparent);
+    }
+
+    .metric-label {
+      font-size: 11.5px;
+      font-weight: 600;
+      color: var(--text-muted);
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      margin-bottom: 6px;
+    }
+
+    .metric-value {
+      font-size: 26px;
+      font-weight: 800;
+      color: #fff;
+      font-family: 'JetBrains Mono', monospace;
+    }
+
+    .metric-sub {
+      font-size: 11px;
+      color: var(--text-dim);
+      margin-top: 4px;
+    }
+
+    /* ATTACK SIMULATION BAR */
+    .attack-bar {
+      background: var(--bg-surface);
+      border: 1px solid var(--border-subtle);
+      border-radius: 12px;
+      padding: 12px 18px;
+      margin-bottom: 20px;
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+    }
+
+    .attack-title {
+      font-size: 12.5px;
+      font-weight: 700;
+      color: var(--text-muted);
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .attack-buttons {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+    }
+
+    /* WORKSPACE GRID */
+    .workspace-grid {
+      display: grid;
+      grid-template-columns: 2.3fr 1fr;
+      gap: 18px;
+    }
+
+    @media (max-width: 1150px) {
+      .workspace-grid {
+        grid-template-columns: 1fr;
+      }
+    }
+
+    /* CARD CONTAINER */
+    .card {
+      background: var(--bg-surface);
+      border: 1px solid var(--border-subtle);
+      border-radius: 12px;
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+    }
+
+    .card-header {
+      padding: 14px 18px;
+      border-bottom: 1px solid var(--border-subtle);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      background: rgba(15, 23, 42, 0.4);
+    }
+
+    .card-title {
+      font-size: 13.5px;
+      font-weight: 700;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    /* PACKET TABLE */
+    .table-container {
+      overflow-x: auto;
+      max-height: 520px;
+      overflow-y: auto;
+    }
+
+    table.packet-table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 11.5px;
+      text-align: left;
+    }
+
+    table.packet-table th {
+      background: var(--bg-card);
+      color: var(--text-dim);
+      font-weight: 700;
+      padding: 10px 14px;
+      font-size: 10.5px;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      position: sticky;
+      top: 0;
+      z-index: 10;
+      border-bottom: 1px solid var(--border-subtle);
+    }
+
+    table.packet-table td {
+      padding: 8px 14px;
+      border-bottom: 1px solid rgba(30, 41, 59, 0.6);
+      font-family: 'JetBrains Mono', monospace;
+      white-space: nowrap;
+    }
+
+    table.packet-table tbody tr {
+      cursor: pointer;
+      transition: background 0.1s ease;
+    }
+
+    table.packet-table tbody tr:hover {
+      background: var(--bg-card-hover);
+    }
+
+    table.packet-table tbody tr.threat-row {
+      background: rgba(239, 68, 68, 0.08);
+    }
+    table.packet-table tbody tr.threat-row:hover {
+      background: rgba(239, 68, 68, 0.16);
+    }
+
+    /* PROTOCOL PILLS */
+    .badge {
+      display: inline-block;
+      padding: 2px 7px;
+      border-radius: 4px;
+      font-size: 10px;
+      font-weight: 700;
+    }
+
+    .badge-tcp { background: rgba(59, 130, 246, 0.2); color: #60a5fa; border: 1px solid rgba(59, 130, 246, 0.4); }
+    .badge-udp { background: rgba(139, 92, 246, 0.2); color: #a78bfa; border: 1px solid rgba(139, 92, 246, 0.4); }
+    .badge-icmp { background: rgba(245, 158, 11, 0.2); color: #fbbf24; border: 1px solid rgba(245, 158, 11, 0.4); }
+    .badge-threat { background: rgba(239, 68, 68, 0.25); color: #f87171; border: 1px solid #ef4444; }
+
+    /* ALERT CARDS */
+    .alerts-container {
+      padding: 12px;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      max-height: 520px;
+      overflow-y: auto;
+    }
+
+    .alert-item {
+      background: var(--bg-card);
+      border: 1px solid var(--border-subtle);
+      border-left: 4px solid var(--danger);
+      border-radius: 8px;
+      padding: 12px;
+      position: relative;
+    }
+
+    .alert-item.HIGH { border-left-color: var(--amber); }
+    .alert-item.MEDIUM { border-left-color: var(--cyan); }
+
+    .alert-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 5px;
+    }
+
+    .alert-badge {
+      font-size: 10px;
+      font-weight: 800;
+      padding: 2px 6px;
+      border-radius: 4px;
+      background: rgba(239, 68, 68, 0.2);
+      color: #f87171;
+    }
+
+    .alert-time {
+      font-size: 10.5px;
+      color: var(--text-dim);
+    }
+
+    .alert-desc {
+      font-size: 12px;
+      color: #e2e8f0;
+      font-weight: 500;
+      margin-bottom: 4px;
+    }
+
+    .alert-meta {
+      font-size: 10.5px;
+      color: var(--text-dim);
+      font-family: 'JetBrains Mono', monospace;
+    }
+
+    /* CISCO COMPARISON BOX */
+    .theory-box {
+      margin-top: 18px;
+      background: var(--bg-surface);
+      border: 1px solid var(--border-subtle);
+      border-radius: 12px;
+      padding: 16px 20px;
+    }
+
+    .theory-header {
+      font-size: 13.5px;
+      font-weight: 700;
+      color: #38bdf8;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin-bottom: 8px;
+    }
+
+    .theory-body {
+      font-size: 12px;
+      color: var(--text-muted);
+      line-height: 1.5;
+    }
+
+    /* MODAL */
+    .modal-backdrop {
+      position: fixed;
+      inset: 0;
+      background: rgba(0, 0, 0, 0.75);
+      backdrop-filter: blur(8px);
+      z-index: 50;
+      display: none;
+      align-items: center;
+      justify-content: center;
+      padding: 20px;
+    }
+
+    .modal-card {
+      background: var(--bg-surface);
+      border: 1px solid var(--border-bright);
+      border-radius: 14px;
+      width: 100%;
+      max-width: 680px;
+      overflow: hidden;
+      box-shadow: 0 20px 40px rgba(0,0,0,0.6);
+    }
+
+    .modal-header {
+      padding: 16px 20px;
+      border-bottom: 1px solid var(--border-subtle);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      background: var(--bg-card);
+    }
+
+    .modal-title {
+      font-size: 14px;
+      font-weight: 800;
+      color: #fff;
+    }
+
+    .modal-close {
+      background: none;
+      border: none;
+      color: var(--text-dim);
+      font-size: 20px;
+      cursor: pointer;
+    }
+    .modal-close:hover { color: #fff; }
+
+    .modal-body {
+      padding: 20px;
+      max-height: 75vh;
+      overflow-y: auto;
+    }
+
+    .layer-block {
+      background: var(--bg-card);
+      border: 1px solid var(--border-subtle);
+      border-radius: 8px;
+      padding: 12px 14px;
+      margin-bottom: 10px;
+    }
+
+    .layer-name {
+      font-size: 11px;
+      font-weight: 800;
+      color: #38bdf8;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      margin-bottom: 6px;
+      display: flex;
+      justify-content: space-between;
+    }
+
+    .layer-details {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 6px 12px;
+      font-size: 11.5px;
+      font-family: 'JetBrains Mono', monospace;
+    }
+  </style>
+</head>
+<body>
+
+  <!-- HEADER -->
+  <header>
+    <div class="brand">
+      <div class="radar-icon">
+        <div class="radar-pulse"></div>
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+          <circle cx="12" cy="12" r="10"></circle>
+          <circle cx="12" cy="12" r="6"></circle>
+          <circle cx="12" cy="12" r="2"></circle>
+          <path d="M12 2a10 10 0 0 1 10 10"></path>
+        </svg>
+      </div>
+      <div>
+        <div class="brand-title">SENTINELCORE</div>
+        <div class="brand-subtitle">Otonom Ağ Trafiği &amp; Saldırı Tespit Sistemi (IDS / SOC)</div>
+      </div>
+    </div>
+
+    <div class="header-actions">
+      <div class="status-badge">
+        <div class="live-dot"></div>
+        <span id="labelMode">SİMÜLASYON AKTİF</span>
+      </div>
+
+      <a href="/api/export-csv" class="btn btn-secondary" title="Excel Uyumlu CSV Raporu İndir">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>
+        <span>CSV Raporu</span>
+      </a>
+
+      <button class="btn btn-secondary" onclick="toggleMode()">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21.5 2v6h-6M21.34 15.57a10 10 0 1 1-.57-8.38l5.67-5.67"/></svg>
+        <span id="btnModeText">Canlı Ağ Kartına Geç</span>
+      </button>
+    </div>
+  </header>
+
+  <div class="container">
+
+    <!-- KPI TELEMETRY -->
+    <div class="metrics-grid">
+      <div class="metric-card">
+        <div class="metric-label">Toplam Yakalanan Paket</div>
+        <div class="metric-value" id="valTotalPackets">0</div>
+        <div class="metric-sub" id="valTotalMB">0.00 MB Trafik</div>
+      </div>
+
+      <div class="metric-card">
+        <div class="metric-label">Paket / Saniye (PPS)</div>
+        <div class="metric-value" id="valPPS">0.0</div>
+        <div class="metric-sub">Gerçek Zamanlı Hız</div>
+      </div>
+
+      <div class="metric-card">
+        <div class="metric-label">Bant Genişliği</div>
+        <div class="metric-value" id="valBandwidth">0.0 <span style="font-size:14px;color:var(--text-dim)">Kbps</span></div>
+        <div class="metric-sub">Anlık Ağ Tüketimi</div>
+      </div>
+
+      <div class="metric-card threat">
+        <div class="metric-label" style="color:#f87171;">Tespit Edilen Tehditler</div>
+        <div class="metric-value" id="valThreats" style="color:#f87171;">0</div>
+        <div class="metric-sub">Otomatik Savunma Alarmı</div>
+      </div>
+    </div>
+
+    <!-- ATTACK SIMULATION CONSOLE -->
+    <div class="attack-bar">
+      <div class="attack-title">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#f59e0b" stroke-width="2"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>
+        <span>Saldırı Simülasyonu &amp; Tatbikat Masası (Packet Tracer Eşdeğeri):</span>
+      </div>
+      <div class="attack-buttons">
+        <button class="btn btn-danger" onclick="triggerAttack('PORT_SCAN')">🎯 Port Taraması (Nmap SYN)</button>
+        <button class="btn btn-danger" onclick="triggerAttack('SYN_FLOOD')">⚡ SYN Flood (DoS)</button>
+        <button class="btn btn-danger" onclick="triggerAttack('ICMP_FLOOD')">📡 ICMP Ping Sweep</button>
+        <button class="btn btn-danger" onclick="triggerAttack('XMAS_SCAN')">🎄 Xmas Tree Stealth Scan</button>
+        <button class="btn btn-secondary" onclick="replaySamplePcap()">📂 sample_attack.pcap Oynat</button>
+      </div>
+    </div>
+
+    <!-- WORKSPACE (TABLE + ALERTS) -->
+    <div class="workspace-grid">
+      
+      <!-- LEFT: PACKET STREAM -->
+      <div class="card">
+        <div class="card-header">
+          <div class="card-title">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#38bdf8" stroke-width="2"><rect x="2" y="2" width="20" height="8" rx="2" ry="2"></rect><rect x="2" y="14" width="20" height="8" rx="2" ry="2"></rect><line x1="6" y1="6" x2="6.01" y2="6"></line><line x1="6" y1="18" x2="6.01" y2="18"></line></svg>
+            <span>Canlı Paket Dinleme Terminali (Packet Sniffer)</span>
+          </div>
+          <span style="font-size:11px; color:var(--text-dim);">*Detaylar için pakete tıklayınız (OSI PDU Görünümü)</span>
+        </div>
+
+        <div class="table-container">
+          <table class="packet-table">
+            <thead>
+              <tr>
+                <th>No</th>
+                <th>Protokol</th>
+                <th>Kaynak (Src)</th>
+                <th>Hedef (Dst)</th>
+                <th>TCP Bayrakları</th>
+                <th>Boyut</th>
+                <th>Özet Bilgi</th>
+              </tr>
+            </thead>
+            <tbody id="packetTableBody">
+              <!-- JS dynamically populates rows -->
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- RIGHT: THREAT ALERTS -->
+      <div class="card">
+        <div class="card-header">
+          <div class="card-title">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#ef4444" stroke-width="2"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"></path><line x1="12" y1="9" x2="12" y2="13"></line><line x1="12" y1="17" x2="12.01" y2="17"></line></svg>
+            <span>Saldırı &amp; Anomali Alarmları (IDS Feed)</span>
+          </div>
+          <span class="badge badge-threat" id="badgeAlertCount">0 ALARM</span>
+        </div>
+
+        <div class="alerts-container" id="alertsContainer">
+          <!-- Dynamic Alerts -->
+        </div>
+      </div>
+
+    </div>
+
+    <!-- CISCO PACKET TRACER THEORY CARD -->
+    <div class="theory-box">
+      <div class="theory-header">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="16" x2="12" y2="12"></line><line x1="12" y1="8" x2="12.01" y2="8"></line></svg>
+        <span>Akademik Not: Cisco Packet Tracer &amp; SentinelCore Bağlantısı</span>
+      </div>
+      <div class="theory-body">
+        Cisco Packet Tracer simülasyonunda izlenen <strong>PDU (Protocol Data Unit)</strong> katmanları (Ethernet $\rightarrow$ IP $\rightarrow$ TCP/UDP), SentinelCore'da fiziksel ağ kartından geçen ham baytların bit seviyesinde ayrıştırılmasıyla (<code>struct.unpack</code>) elde edilir. Packet Tracer'daki statik <strong>ACL (Access Control List)</strong> filtreleme mantığı, burada kayan zaman pencereli (sliding time-window) anomali algoritmalarıyla otonom bir <strong>Saldırı Tespit Sistemine (IDS)</strong> dönüştürülmüştür.
+      </div>
+    </div>
+
+  </div>
+
+  <!-- OSI / PDU INSPECTION MODAL (Cisco Packet Tracer Equivalent) -->
+  <div class="modal-backdrop" id="pduModal" onclick="closeModal(event)">
+    <div class="modal-card" onclick="event.stopPropagation()">
+      <div class="modal-header">
+        <div class="modal-title">🔍 Paket Detay Analizi (OSI / PDU Kapsülleme Görünümü)</div>
+        <button class="modal-close" onclick="closeModal()">&times;</button>
+      </div>
+      <div class="modal-body" id="modalBody">
+        <!-- Injected via JS -->
+      </div>
+    </div>
+  </div>
+
+  <script>
+    let currentMode = "SIMULATION";
+    const maxTableRows = 60;
+    const packetStore = new Map();
+    let ws = null;
+
+    function connectWebSocket() {
+      const loc = window.location;
+      const wsUri = (loc.protocol === "https:" ? "wss:" : "ws:") + "//" + loc.host + "/ws";
+      
+      ws = new WebSocket(wsUri);
+
+      ws.onopen = () => {
+        console.log("WebSocket bağlantısı kuruldu.");
+      };
+
+      ws.onmessage = (event) => {
+        const data = JSON.parse(event.data);
+        if (data.type === "INITIAL_STATE") {
+          updateMetrics(data.metrics);
+          currentMode = data.mode;
+          updateModeUI();
+          data.recent_packets.forEach(p => addPacketRow(p, false));
+          data.recent_alerts.forEach(a => addAlertCard(a));
+        } else if (data.type === "NEW_PACKET") {
+          updateMetrics(data.metrics);
+          addPacketRow(data.packet, true);
+          if (data.alert) {
+            addAlertCard(data.alert);
+          }
+        }
+      };
+
+      ws.onclose = () => {
+        console.log("WebSocket kapandı, 2 sn sonra tekrar deneniyor...");
+        setTimeout(connectWebSocket, 2000);
+      };
+    }
+
+    function updateMetrics(m) {
+      document.getElementById("valTotalPackets").textContent = m.total_packets.toLocaleString();
+      document.getElementById("valTotalMB").textContent = (m.total_bytes / (1024 * 1024)).toFixed(2) + " MB Trafik";
+      document.getElementById("valPPS").textContent = m.packets_per_second;
+      document.getElementById("valBandwidth").innerHTML = m.bandwidth_kbps + ` <span style="font-size:14px;color:var(--text-dim)">Kbps</span>`;
+      document.getElementById("valThreats").textContent = m.threat_count;
+    }
+
+    function addPacketRow(p, isNew) {
+      packetStore.set(p.id, p);
+      const tbody = document.getElementById("packetTableBody");
+      const tr = document.createElement("tr");
+      tr.id = `pkt-${p.id}`;
+      if (p.is_threat) tr.className = "threat-row";
+      tr.onclick = () => openPduModal(p.id);
+
+      let protoBadge = `<span class="badge badge-tcp">TCP</span>`;
+      if (p.protocol === "UDP") protoBadge = `<span class="badge badge-udp">UDP</span>`;
+      else if (p.protocol === "ICMP") protoBadge = `<span class="badge badge-icmp">ICMP</span>`;
+      if (p.is_threat) protoBadge += ` <span class="badge badge-threat">ALARM</span>`;
+
+      let flagHtml = "-";
+      if (p.tcp_flags) {
+        const active = Object.keys(p.tcp_flags).filter(k => p.tcp_flags[k]);
+        flagHtml = active.length > 0 ? active.join(",") : "NONE";
+      }
+
+      const srcFlag = p.src_flag || "🌐";
+      const dstFlag = p.dst_flag || "🌐";
+      const src = p.src_port ? `${p.src_ip}:${p.src_port}` : p.src_ip;
+      const dst = p.dst_port ? `${p.dst_ip}:${p.dst_port}` : p.dst_ip;
+
+      tr.innerHTML = `
+        <td style="color:var(--text-dim)">#${p.id}</td>
+        <td>${protoBadge}</td>
+        <td style="color:#38bdf8" title="${p.src_country || 'Yerel'}">${srcFlag} ${src}</td>
+        <td style="color:#a78bfa" title="${p.dst_country || 'İnternet'}">${dstFlag} ${dst}</td>
+        <td style="color:${p.is_threat ? '#f87171' : 'var(--text-muted)'}">${flagHtml}</td>
+        <td>${p.length} B</td>
+        <td style="color:var(--text-muted); max-width:260px; overflow:hidden; text-overflow:ellipsis;">${p.summary}</td>
+      `;
+
+      tbody.insertBefore(tr, tbody.firstChild);
+
+      if (tbody.children.length > maxTableRows) {
+        tbody.removeChild(tbody.lastChild);
+      }
+    }
+
+    function addAlertCard(a) {
+      const container = document.getElementById("alertsContainer");
+      const card = document.createElement("div");
+      card.className = `alert-item ${a.severity}`;
+
+      const timeStr = new Date(a.timestamp * 1000).toLocaleTimeString();
+
+      card.innerHTML = `
+        <div class="alert-header">
+          <span class="alert-badge">${a.alert_type} [${a.severity}]</span>
+          <span class="alert-time">${timeStr}</span>
+        </div>
+        <div class="alert-desc">${a.details}</div>
+        <div class="alert-meta">Saldırgan: ${a.src_ip} -> Hedef: ${a.dst_ip}${a.target_port ? ':' + a.target_port : ''}</div>
+      `;
+
+      container.insertBefore(card, container.firstChild);
+      const count = container.children.length;
+      document.getElementById("badgeAlertCount").textContent = `${count} ALARM`;
+    }
+
+    async function triggerAttack(type) {
+      try {
+        const res = await fetch("/api/trigger-attack", {
+          method: "POST",
+          headers: {"Content-Type": "application/json"},
+          body: JSON.stringify({ attack_type: type, target_ip: "192.168.1.100", target_port: 80 })
+        });
+        const d = await res.json();
+        console.log(d.message);
+      } catch (err) {
+        console.error(err);
+      }
+    }
+
+    async function replaySamplePcap() {
+      try {
+        const res = await fetch("/api/replay-sample-pcap", {method: "POST"});
+        const d = await res.json();
+        console.log(d.message);
+      } catch (err) {
+        console.error(err);
+      }
+    }
+
+    async function toggleMode() {
+      const targetMode = currentMode === "SIMULATION" ? "LIVE" : "SIMULATION";
+      try {
+        const res = await fetch("/api/switch-mode", {
+          method: "POST",
+          headers: {"Content-Type": "application/json"},
+          body: JSON.stringify({ mode: targetMode })
+        });
+        const d = await res.json();
+        currentMode = d.current_mode;
+        updateModeUI();
+      } catch (err) {
+        console.error(err);
+      }
+    }
+
+    function updateModeUI() {
+      const label = document.getElementById("labelMode");
+      const btnText = document.getElementById("btnModeText");
+      if (currentMode === "LIVE") {
+        label.textContent = "CANLI AĞ KARTI (RAW SOCKET)";
+        label.parentElement.style.color = "#38bdf8";
+        btnText.textContent = "Simülasyon Moduna Geç";
+      } else {
+        label.textContent = "SİMÜLASYON & TATBİKAT AKTİF";
+        label.parentElement.style.color = "#34d399";
+        btnText.textContent = "Canlı Ağ Kartına Geç";
+      }
+    }
+
+    function openPduModal(pktId) {
+      const p = packetStore.get(pktId);
+      if (!p) return;
+
+      const body = document.getElementById("modalBody");
+      body.innerHTML = `
+        <div class="layer-block">
+          <div class="layer-name">
+            <span>KATMAN 2: VERİ BAĞLANTI (DATA LINK LAYER)</span>
+            <span style="color:var(--text-dim)">Ethernet II Çerçevesi</span>
+          </div>
+          <div class="layer-details">
+            <div>Kaynak MAC: <span style="color:#fff">00:1A:2B:3C:4D:5E</span></div>
+            <div>Hedef MAC: <span style="color:#fff">FF:FF:FF:FF:FF:FF (Broadcast)</span></div>
+            <div>Çerçeve Tipi: <span style="color:#fff">0x0800 (IPv4 Kapsülleme)</span></div>
+            <div>Kablo Boyutu: <span style="color:#fff">${p.length + 14} Byte</span></div>
+          </div>
+        </div>
+
+        <div class="layer-block">
+          <div class="layer-name">
+            <span>KATMAN 3: AĞ (NETWORK LAYER)</span>
+            <span style="color:var(--text-dim)">IPv4 Protokol Başlığı</span>
+          </div>
+          <div class="layer-details">
+            <div>Kaynak IP: <span style="color:#38bdf8">${p.src_ip}</span></div>
+            <div>Hedef IP: <span style="color:#a78bfa">${p.dst_ip}</span></div>
+            <div>TTL (Yaşam Süresi): <span style="color:#fff">${p.ttl || 64}</span></div>
+            <div>Protokol: <span style="color:#38bdf8">${p.protocol}</span></div>
+            <div>Başlık Uzunluğu (IHL): <span style="color:#fff">20 Byte</span></div>
+            <div>Toplam Uzunluk: <span style="color:#fff">${p.length} Byte</span></div>
+          </div>
+        </div>
+
+        <div class="layer-block">
+          <div class="layer-name">
+            <span>KATMAN 4: TAŞIMA (TRANSPORT LAYER)</span>
+            <span style="color:var(--text-dim)">${p.protocol} Başlığı &amp; Segment Bilgisi</span>
+          </div>
+          <div class="layer-details">
+            <div>Kaynak Port: <span style="color:#38bdf8">${p.src_port || 'N/A'}</span></div>
+            <div>Hedef Port: <span style="color:#a78bfa">${p.dst_port || 'N/A'}</span></div>
+            <div>Aktif Bayraklar: <span style="color:${p.is_threat ? '#f87171' : '#34d399'}">${p.tcp_flags ? Object.keys(p.tcp_flags).filter(k => p.tcp_flags[k]).join(', ') || 'NONE' : 'N/A'}</span></div>
+            <div>Segment Durumu: <span style="color:#fff">${p.is_threat ? 'ŞÜPHELİ / ANOMALİ' : 'GEÇERLİ'}</span></div>
+          </div>
+        </div>
+
+        <div class="layer-block">
+          <div class="layer-name">
+            <span>KATMAN 7: UYGULAMA (APPLICATION LAYER)</span>
+            <span style="color:var(--text-dim)">Payload / Yük Dökümü</span>
+          </div>
+          <div style="font-family:'JetBrains Mono'; font-size:11px; color:#cbd5e1; background:#080c14; padding:8px; border-radius:6px; overflow-x:auto;">
+            ${p.summary}
+          </div>
+        </div>
+
+        <div style="font-size:11.5px; color:var(--text-dim); text-align:center; margin-top:8px;">
+          💡 <em>Cisco Packet Tracer Simulation PDU penceresinin canlı paket inceleme karşılığıdır.</em>
+        </div>
+      `;
+
+      document.getElementById("pduModal").style.display = "flex";
+    }
+
+    function closeModal(e) {
+      document.getElementById("pduModal").style.display = "none";
+    }
+
+    // Başlat
+    connectWebSocket();
+  </script>
+</body>
+</html>
