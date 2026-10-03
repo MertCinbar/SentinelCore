@@ -100,20 +100,39 @@ flowchart TD
 
 ## 🚀 Hızlı Başlangıç
 
-### 1. Kurulum ve Çalıştırma
+### Yöntem 1: Tek Tıkla Başlatma (Önerilen - Windows)
+
+Proje kök dizinindeki **`baslat.bat`** dosyasına çift tıklayarak sistemi anında başlatabilirsiniz.  
+Bu dosya otomatik olarak:
+1. Gerekli kütüphaneleri (`requirements.txt`) doğrular,
+2. FastAPI/Uvicorn WebSocket sunucusunu ayağa kaldırır,
+3. Varsayılan web tarayıcınızda kokpiti açar (`http://127.0.0.1:8050`).
+
+---
+
+### Yöntem 2: Komut Satırından Başlatma (Cross-Platform)
 
 ```bash
-# Proje dizinine git
+# 1. Proje dizinine gidin
 cd C:\Users\pc\Desktop\DERS\SentinelCore
 
-# Sunucuyu başlat
+# 2. Bağımlılıkları yükleyin
+pip install -r requirements.txt
+
+# 3. Sunucuyu başlatın
 python main.py --port 8050
 ```
 
-Tarayıcında aç:  
+Tarayıcınızda açın:  
 👉 **`http://127.0.0.1:8050`**
 
-### 2. Otomatik Testleri Çalıştırma
+> [!NOTE]
+> **`127.0.0.1:8050` Neden Yerel Adrestir?**  
+> `127.0.0.1` (localhost), doğrudan sizin kendi bilgisayarınızı temsil eder. SentinelCore, ağ kartı dinleme ve gerçek zamanlı paket analizi yapan Python soket altyapısına sahip bir backend uygulamasıdır. Statik HTML sayfaları gibi uzaktan doğrudan çalıştırılamaz; bu nedenle arayüze erişmek için sunucunun yerel makinenizde açık olması gerekir.
+
+---
+
+### 3. Otomatik Testleri Çalıştırma
 
 ```bash
 python test_sentinel.py
